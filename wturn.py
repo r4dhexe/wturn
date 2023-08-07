@@ -194,7 +194,7 @@ if not args.lang:
 else:
     target_lang = args.lang
 
-translator=deepl.Translator(auth_key) #tconstruct ranslator
+translator=deepl.Translator(auth_key).set_app_info("wturn", "0.1") #tconstruct ranslator
 
 if args.usage == True:
     usage = translator.get_usage()
