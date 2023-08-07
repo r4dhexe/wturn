@@ -1,0 +1,6 @@
+bs4
+deepl
+requests
+yaml
+pathlib
+argparse
