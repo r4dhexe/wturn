@@ -4,7 +4,7 @@ WTURN
 Description:    DEEPL asisted translator for wikipedia articles
                 with original reference positioning, basic
                 wiki formatting and glossary.
-Version:        0.1
+Version:        0.0.2
 Author:         Ivy Kleban
 Author email:   iva.kleban@tuta.io
 '''
@@ -38,35 +38,27 @@ def read_config():
             return config['auth_key'], config['def_target_lang']
 
 def args_parser():
-    parser = argparse.ArgumentParser(prog='wturn', description='Deepl assisted translation of English Wikipedia articles', epilog = 'Written by Ivana Kleban - r4dhexe@tuta.io',  formatter_class=argparse.HelpFormatter)
+    parser = argparse.ArgumentParser(prog='wturn', description='Deepl assisted translation of English Wikipedia articles', epilog = 'Written by Ivana Kleban - iva.kleban@tuta.io',  formatter_class=argparse.HelpFormatter)
     parser.add_argument('-a', '--article', help='Article for conversion.') #default value for testing, remove later
     parser.add_argument('-l', '--lang', default=def_target_lang,  metavar='lang', help='Target language code as provided in .wturnrc configuration file. (default: CS - Czech)' )
     parser.add_argument('-u', '--usage', action='store_true', help='Check for usage data.' )
-    parser.add_argument('-k', '--kat', action='store_true', help='Also translate categories. (default: False)' )
-    parser.add_argument('-V', '--version', action='version', version='%(prog)s 0.1')
+    parser.add_argument('-x', '--xref', action='store_true', help='Do not include references.' )
+    parser.add_argument('-k', '--kat', action='store_true', help='Also translate categories.' )
+    parser.add_argument('-V', '--version', action='version', version='%(prog)s 0.0.2')
     
     return parser.parse_args()
-
 
 
 def extract_with_ref(article):
     '''
     Extract text and reference list from article, translate and combine.
     '''
-    article_name = re.sub('_',' ', article) # used in translation_widget 
-    html = requests.get('https://en.wikipedia.org/w/index.php?title=' + article  + '&action=edit')
-    
-    origin = (BeautifulSoup(html.text, 'html.parser').find('textarea', attrs={'id':
-    'wpTextbox1'}).prettify(formatter='html'))
-    original = origin.replace('&lt;','<').replace('&gt;','>')
-    ref_list = BeautifulSoup(original,'html.parser').find_all('ref')
-    
+    article_name = re.sub('_',' ', article) # used in translation_widget
+
 
     # extract text and reference position to be run through translator engine
 
     html_a = requests.get('https://en.wikipedia.org/wiki/'+article)
-    
-
     article = (BeautifulSoup(html_a.text, 'html.parser').find('div', attrs={'class':'mw-parser-output'}).find_all(['p','h1', 'h2','h3','h4','h5','h6']))
 
     # retrieve revision id then destroy helper
@@ -81,15 +73,15 @@ def extract_with_ref(article):
             case 'p':
                 src_art += '\n'+item.get_text()+'\n'
             case 'h2':    
-                src_art += ('='*2)+' '+item.get_text()+' '+('='*2)
+                src_art += ('='*2)+' '+item.get_text()+' '+('='*2)+'\n'
             case 'h3':
-                src_art += ('='*3)+' '+item.get_text()+' ' +('='*3)
+                src_art += ('='*3)+' '+item.get_text()+' ' +('='*3)+'\n'
             case 'h4':
-                src_art += ('='*4)+' '+item.get_text()+' '+('='*4)
+                src_art += ('='*4)+' '+item.get_text()+' '+('='*4)+'\n'
             case 'h5':
-                src_art += ('='*5)+' '+item.get_text()+' '+('='*5)
+                src_art += ('='*5)+' '+item.get_text()+' '+('='*5)+'\n'
             case 'h6':
-                src_art += ('='*6)+' '+item.get_text()+' '+('='*6)
+                src_art += ('='*6)+' '+item.get_text()+' '+('='*6)+'\n'
             
     src_art = src_art.replace('[edit]', '')
     # list reference numbers
@@ -97,37 +89,45 @@ def extract_with_ref(article):
 
     result = translate(src_art).__str__()
     
-    def get_translated_categories():
-        '''
-        Translates and prints article categories in wiki markup.
-        Left as switch for now, to save on character usage.
-        '''
-
-        if args.kat == True:
-            categories = []
-            article_categories = BeautifulSoup(html_a.text, 'html.parser').find('div', attrs={'class':'mw-normal-catlinks'}).find_all('a')
-            for category in article_categories:
-                categories.append(category.get_text())
-
-            categories_turned = translate(categories.remove(categories[0]))
-            for c in categories_turned:
-                result += (f'[[{c.text}]]\n')
-
-            return result    
-        else:
-            pass
     ''' replace reference numbers with references in wiki notation'''
-    i=0
-    for ref in nums:
-        reference = str(ref_list[i])
-        result = result.replace(ref, reference)
-        i = i+1
+   
+    if ref_switch == True:
+        pass
+    else:
+        html = requests.get('https://en.wikipedia.org/w/index.php?title=' + args.article  + '&action=edit')
     
-    #result_formatted = re.sub(r'\n\n\d(.*\b)\n',r'\n\n== \1 ==\n', result)
+        origin = (BeautifulSoup(html.text, 'html.parser').find('textarea', attrs={'id':'wpTextbox1'}).prettify(formatter='html'))
+        original = origin.replace('&lt;','<').replace('&gt;','>')
+        ref_list = BeautifulSoup(original,'html.parser').find_all('ref')
+    
+        i=0
+        for ref in nums:
+            reference = str(ref_list[i])
+            result = result.replace(ref, reference)
+            i = i+1
+        
+   
+   
+    '''
+    Translates and prints article categories in wiki markup.
+    Left as switch for now, to save on character usage.
+    '''
     translation_widget = translate('Translation')
     result += '\n{'+translation_widget.text+'|en|'+article_name+'|'+rev_id+'}\n'
     result += '\n<references />\n'
-    get_translated_categories()
+
+    if kat_switch == True:
+        categories = []
+        article_categories = BeautifulSoup(html_a.text, 'html.parser').find('div', attrs={'class':'mw-normal-catlinks'}).find_all('a')
+        for category in article_categories:
+            categories.append(category.get_text())
+        categories.remove(categories[0])
+        categories_turned = translate(categories)
+        for c in categories_turned:
+            result += (f'[[{c.text}]]\n')           
+    else:
+        pass
+               
     return result
 
 def translate(text):
@@ -181,6 +181,7 @@ def check_target_languages():
 
 auth_key, def_target_lang = read_config()  #read authorisation key and default language configuration from ~/.wturnrc
 args = args_parser()
+ref_switch, kat_switch = args.xref, args.kat
 
 '''
 Checks whether user provided target language, or should default to config.
@@ -194,7 +195,7 @@ if not args.lang:
 else:
     target_lang = args.lang
 
-translator=deepl.Translator(auth_key).set_app_info("wturn", "0.1") #tconstruct ranslator
+translator=deepl.Translator(auth_key).set_app_info("wturn", "0.1")  #tconstruct ranslator
 
 if args.usage == True:
     usage = translator.get_usage()
@@ -209,6 +210,8 @@ if not args.article:
 else:
     source_article, char_count = check_article_existence(args.article) #check if article exists and count chars
     check_deepl_quota()
-    print(extract_with_ref(args.article))
+    result =  extract_with_ref(args.article)
+    
+    print(result)
     exit()
 
