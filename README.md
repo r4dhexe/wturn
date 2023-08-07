@@ -11,6 +11,8 @@ Clone this repository to destination folder of preference.
 mkdir <destination folder>
 cd <destination folder>
 git clone https:////github.com/r4dhexe/wturn
+cd wturn
+chmod +x wturn.py
 ```
 
 You can alias this utility in your .bashrc to make it available user-space wide.
@@ -78,6 +80,15 @@ Translated text with apropriate reference<ref /> positioning and basic wiki mark
 == References ==
 <references />
 ```
+To get article without references use **-x** switch:
+```bash
+$ wturn -a Example_Article -x
+
+# result
+Translated text with apropriate reference positioning and basic wiki markup.
+```
+**Note: Even -x/--xref option still appends the *== References ==* headline and *<references />* tag.**
+
 As source and target wiki do not allways share same category structure, nor
 are some categories relatable, the article is, per default, translated without category list
 to save on character quota.
@@ -94,7 +105,7 @@ Translated text with apropriate reference<ref /> positioning and basic wiki mark
 
 [[Categories]]
 ```
-The '''-l''' option let's us choose target language. Value is checked against list of Deepl supported target languages.
+The **-l** option let's us choose target language. Value is checked against list of Deepl supported target languages.
 
 ```bash
 $ wturn -a Example_Article -l CS
