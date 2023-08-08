@@ -140,6 +140,19 @@ $ mapfile -t list < example_list
 $ for item in ${list[@]}; do wturn -a $i >> $i.wiki; done
 ```
 ---
+
+## Dictionary
+Wturn comes with **very** basic dictionary module. Dictionary source file can be specified in
+config file. For now it's just kept in the main folder, but might migrate to dict/ later.
+Dictionary formatting is basic yaml, parsed with yaml python module. 
+
+```yaml
+# example dictionary
+Hello: Ahoj
+world: světe
+```
+**Note: Does not convert case automaticaly.**
+
 ## Logic flow
 
 ```
@@ -149,6 +162,7 @@ check character count against deepl quota / exit() on exceeding quota (FREE tier
 check target language against deepl target languages list 
 construct source text, add wiki markdown to h* elements -> translate
   optional translate and append category list
+run text throught user maintained dictionary
 output to <stdout>
 exit()
 ```
@@ -161,7 +175,6 @@ Hit me up at iva.kleban at tuta.io
 - test a lot and improve
 - add verbose flow
 - Firefox add-on, so port to JS
-- simple dictionary support for rephrasing selected terms
 
 ## License
 [MIT](https://choosealicense.com/licenses/mit/)
