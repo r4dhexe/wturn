@@ -49,17 +49,18 @@ def args_parser():
     return parser.parse_args()
 
 
-def extract_with_ref(article):
+def extract_article(source_article):
     '''
     Extract text and reference list from article, translate and combine.
     '''
-    article_name = re.sub('_',' ', article) # used in translation_widget
+
 
 
     # extract text and reference position to be run through translator engine
 
-    html_a = requests.get('https://en.wikipedia.org/wiki/'+article)
-    article = (BeautifulSoup(html_a.text, 'html.parser').find('div', attrs={'class':'mw-parser-output'}).find_all(['p','h1', 'h2','h3','h4','h5','h6']))
+    html_a = requests.get('https://en.wikipedia.org/wiki/'+source_article)
+    article = (BeautifulSoup(html_a.text, 'html.parser').find('div',
+        attrs={'class':'mw-parser-output'}).find_all(['p','ul','h1', 'h2','h3','h4','h5','h6']))
 
     # retrieve revision id then destroy helper
     rev_id_helper = BeautifulSoup(html_a.text, 'html.parser').prettify()
@@ -72,8 +73,14 @@ def extract_with_ref(article):
         match item.name:
             case 'p':
                 src_art += '\n'+item.get_text()+'\n'
+            case 'ul':
+                lister = re.sub(r'^', '* ', item.get_text(), flags=re.M) # wiki format for strings in ul
+                
+                src_art += '\n '+lister+'\n'
             case 'h2':    
                 src_art += ('='*2)+' '+item.get_text()+' '+('='*2)+'\n'
+                if item.get_text() == 'References':
+                    src_art += '\n<references />\n'
             case 'h3':
                 src_art += ('='*3)+' '+item.get_text()+' ' +('='*3)+'\n'
             case 'h4':
@@ -86,25 +93,40 @@ def extract_with_ref(article):
     src_art = src_art.replace('[edit]', '')
     # list reference numbers
     nums = re.findall('\[[0-9]+\]', src_art)
+    return src_art, nums, article, rev_id
 
-    result = translate(src_art).__str__()
-    
-    ''' replace reference numbers with references in wiki notation'''
+def extract_with_ref(source_article):
+    article_name = re.sub('_',' ', source_article) # used in translation_widget
+
+    src_art, nums, article, rev_id = extract_article(source_article)
+    ''' 
+    Reference parser option.
+    Either parse without references on -x/-xref
+    Or first check reference vs. pointer list and 
+    either abort or continue.
+    '''
    
     if ref_switch == True:
-        pass
+        result = translate(src_art).__str__()
     else:
-        html = requests.get('https://en.wikipedia.org/w/index.php?title=' + args.article  + '&action=edit')
-    
-        origin = (BeautifulSoup(html.text, 'html.parser').find('textarea', attrs={'id':'wpTextbox1'}).prettify(formatter='html'))
-        original = origin.replace('&lt;','<').replace('&gt;','>')
-        ref_list = BeautifulSoup(original,'html.parser').find_all('ref')
-    
-        i=0
-        for ref in nums:
-            reference = str(ref_list[i])
-            result = result.replace(ref, reference)
-            i = i+1
+        ref_list = get_reference_html_list()
+        if len(nums) != len(ref_list):
+            print("Error: Reference list and reference pointers do not match!")
+            continue_check = input('Continue without references? y/n:')
+            if continue_check != 'y':
+                print('Aborting now.')
+                exit()
+            else:
+                result = translate(src_art).__str__()
+
+        else:
+            result = translate(src_art).__str__()
+            
+            i=0
+            for ref in nums:
+                reference = str(ref_list[i])
+                result = result.replace(ref, reference)
+                i = i+1
         
    
    
@@ -129,6 +151,20 @@ def extract_with_ref(article):
         pass
                
     return result
+
+def get_reference_html_list():
+    '''
+    Get reference list in html format(<ref></ref>) from wiki editor
+    to be parsed and replace [d] mark in target tanslation.
+    '''
+    
+    html = requests.get('https://en.wikipedia.org/w/index.php?title=' + source_article  + '&action=edit')
+    
+    origin = (BeautifulSoup(html.text, 'html.parser').find('textarea', attrs={'id':'wpTextbox1'}).prettify(formatter='html'))
+    original = origin.replace('&lt;','<').replace('&gt;','>')
+    ref_list = BeautifulSoup(original,'html.parser').find_all('ref')
+    return ref_list
+ 
 
 def translate(text):
     translator=deepl.Translator(auth_key)
@@ -179,38 +215,40 @@ def check_target_languages():
         ll.append(langs.code)
     return ll    
 
-auth_key, def_target_lang = read_config()  #read authorisation key and default language configuration from ~/.wturnrc
-args = args_parser()
-ref_switch, kat_switch = args.xref, args.kat
+if __name__ == '__main__':
+    auth_key, def_target_lang = read_config()  #read authorisation key and default language configuration from ~/.wturnrc
+    args = args_parser()
+    ref_switch, kat_switch = args.xref, args.kat
 
-'''
-Checks whether user provided target language, or should default to config.
-'''
-if not args.lang:
-    if  check_target_lang.__contains__(def_target_lang):
-        target_lang = def_target_lang
+    '''
+    Checks whether user provided target language, or should default to config.
+    '''
+    if not args.lang:
+        if  check_target_lang.__contains__(def_target_lang):
+            target_lang = def_target_lang
+        else:
+            print('Error: Default language setting not compatible with DEEPL API')
+            exit()
     else:
-        print('Error: Default language setting not compatible with DEEPL API')
-        exit()
-else:
-    target_lang = args.lang
+        target_lang = args.lang
 
-translator=deepl.Translator(auth_key).set_app_info("wturn", "0.1")  #tconstruct ranslator
+    translator=deepl.Translator(auth_key).set_app_info("wturn", "0.1")  #tconstruct ranslator
 
-if args.usage == True:
-    usage = translator.get_usage()
-    count_left = usage.character.limit-usage.character.count
-    print(f'''Character usage:  {usage.character.count}  of {usage.character.limit}. Characters left: {count_left}. ''')
+    if args.usage == True:
+        usage = translator.get_usage()
+        count_left = usage.character.limit-usage.character.count
+        print(f'''Character usage:  {usage.character.count}  of {usage.character.limit}. Characters left: {count_left}. ''')
+        if not args.article:
+            exit()
+
     if not args.article:
+        print ('No article for conversion provided. Aborting.')
         exit()
-
-if not args.article:
-    print ('No article for conversion provided. Aborting.')
-    exit()
-else:
-    source_article, char_count = check_article_existence(args.article) #check if article exists and count chars
-    check_deepl_quota()
-    result =  extract_with_ref(args.article)
+    else:
+        source_article, char_count = check_article_existence(args.article) #check if article exists and count chars
+        check_deepl_quota()
+        source_article = args.article
+        result =  extract_with_ref(source_article)
     
-    print(result)
+        print(result)
     exit()
