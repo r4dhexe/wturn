@@ -160,7 +160,7 @@ def get_reference_html_list(ref_src = None):
     to be parsed and replace [d] mark in target tanslation.
     '''
     if ref_src == None:
-        ref_src = source_article
+        ref_src = source_article # for testing in interactive console
     html = requests.get('https://en.wikipedia.org/w/index.php?title=' + ref_src  + '&action=edit')
     
     origin = (BeautifulSoup(html.text, 'html.parser').find('textarea', attrs={'id':'wpTextbox1'}).prettify(formatter='html'))
