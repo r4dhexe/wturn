@@ -60,7 +60,7 @@ def extract_article(source_article):
 
     html_a = requests.get('https://en.wikipedia.org/wiki/'+source_article)
     article = (BeautifulSoup(html_a.text, 'html.parser').find('div',
-        attrs={'class':'mw-parser-output'}).find_all(['p','ul','h1', 'h2','h3','h4','h5','h6']))
+        attrs={'class':'mw-parser-output'}).find_all(['p','ul','h1', 'h2','h3','h4','h5','h6', 'figure']))
 
     # retrieve revision id then destroy helper
     rev_id_helper = BeautifulSoup(html_a.text, 'html.parser').prettify()
@@ -89,6 +89,8 @@ def extract_article(source_article):
                 src_art += ('='*5)+' '+item.get_text()+' '+('='*5)+'\n'
             case 'h6':
                 src_art += ('='*6)+' '+item.get_text()+' '+('='*6)+'\n'
+            case 'figure':
+                src_art += '\n[['+re.sub('/wiki/', '', item.a.get('href'))+'|thumb|'+item.get_text()+']]\n'
             
     src_art = src_art.replace('[edit]', '')
     # list reference numbers
@@ -152,13 +154,14 @@ def extract_with_ref(source_article):
                
     return result
 
-def get_reference_html_list():
+def get_reference_html_list(ref_src = None):
     '''
     Get reference list in html format(<ref></ref>) from wiki editor
     to be parsed and replace [d] mark in target tanslation.
     '''
-    
-    html = requests.get('https://en.wikipedia.org/w/index.php?title=' + source_article  + '&action=edit')
+    if ref_src == None:
+        ref_src = source_article
+    html = requests.get('https://en.wikipedia.org/w/index.php?title=' + ref_src  + '&action=edit')
     
     origin = (BeautifulSoup(html.text, 'html.parser').find('textarea', attrs={'id':'wpTextbox1'}).prettify(formatter='html'))
     original = origin.replace('&lt;','<').replace('&gt;','>')
